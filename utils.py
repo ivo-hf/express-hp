@@ -166,6 +166,9 @@ def insert_pred_exp(date,market,mark,quantile,pool,rolling_window):
             ] + list(res.values[0])
     if np.isnan(res.values[0][0]):
         return
+    if np.abs(res.values[0][0]) > 10 or np.abs(res.values[0][1]) > 10:
+        return
+
     insert_code = """
          INSERT INTO hp.FixOffsetPredExp values ({})
          """.format(",".join([str(i) for i in data]))
