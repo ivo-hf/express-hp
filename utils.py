@@ -53,19 +53,15 @@ def get_portfolio_info(date):
     account_info["Mark"] = account_info["Account"].apply(lambda x:x.split('_')[1][:2])
     return account_info
 
-def get_pos(date,account):
-    client = Client(host='192.168.47.110', port='9000', user='hfadmin', password='cmz8QVZ_wmw-vzv8num',
-                    settings={'use_numpy': True})
+def get_pos(client,date,account):
     query = """SELECT * 
-    FROM datahouse.PositionTableDistinctView
+    FROM datahouse.PositionTableDistinctView  
     WHERE Date = '{date}' and Account = '{account}'
     """.format(date=date,account=account)
     df_pos = client.query_dataframe(query)
     return df_pos
 
-def get_trades(account,date):
-    client = Client(host='192.168.47.110', port='9000', user='hfadmin', password='cmz8QVZ_wmw-vzv8num',
-                    settings={'use_numpy': True})
+def get_trades(client,date,account):
     query = """
     SELECT * 
     FROM datahouse.TradeTableDistinctView

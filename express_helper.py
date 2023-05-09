@@ -35,19 +35,9 @@ class IntradayPnlProcessor:
         self.client.execute(optimize_code)
         print("Finish Optimize TradeExpByGroup")
 
-
-
-    def upload(self):
-        print("========= Start Upload ==============")
-        for account in self.res_dict:
-            account_res = self.res_dict[account].values
-            for res in tqdm(account_res):
-                self.insert(res)
-
-
-
     def run_async(self):
-        '''多进程运行'''
+        '''多进程运行, 提前下好数据'''
+        self.prepare_data()
         processes = []
         for account in self.account_info["Account"]:
             p = mp.Process(target=self.run_account,args=(account,))
@@ -59,6 +49,29 @@ class IntradayPnlProcessor:
         optimize_code = "optimize table hp.IntradayPnl final"
         self.client.execute(optimize_code)
 
+    def prepare_data(self):
+        start = time.time()
+        print("Start Read History")
+        client = Client(host='192.168.47.110', port='9000', user='hfadmin', password='cmz8QVZ_wmw-vzv8num',
+                        settings={'use_numpy': True})
+        self.pos_dict = {}
+        self.trade_dict = {}
+        self.min_data_dict = {}
+        code_list = list(client.query_dataframe(
+            """SELECT DISTINCT Instrument
+                    FROM datahouse.PositionTableDistinctView
+                    WHERE Account like 'PHB%HP%DC' and Date = '{date}' 
+                    and right(Instrument,2) IN( 'SH','SZ')""".format(date=self.date)
+                                           )["Instrument"])
+        for account in tqdm(self.account_info["Account"]):
+            if account[-3:] == "Pos":
+                self.pos_dict[account] = utils.get_pos(client,self.prev_date,account)
+            else:
+                self.trade_dict[account] = utils.get_trades(client,self.date,account)
+
+        for code in code_list:
+            self.min_data_dict[code] = utils.get_min_data(self.date,code)
+        print("日内数据准备结束，耗时：{}".format(time.time() - start))
 
     def get_insert_code(self,res):
         insert = [
@@ -71,21 +84,6 @@ class IntradayPnlProcessor:
             str(res[6])
         ]
         return "({})".format(",".join(insert))
-
-    def insert(self,res):
-        insert = [
-            "'{}'".format(res[0]),
-            "'{}'".format(res[1]),
-            "'{}'".format(res[2]),
-            "'{}'".format(res[3]),
-            str(int(res[4])),
-            str(res[5]),
-            str(res[6])
-        ]
-        insert_code = """
-                             INSERT INTO hp.IntradayPnl values ({})
-                             """.format(",".join(insert))
-        self.client.execute(insert_code)
 
     def run_account(self,account):
         client = Client(host='192.168.47.110', port='9000', user='hfadmin', password='cmz8QVZ_wmw-vzv8num',
@@ -103,15 +101,16 @@ class IntradayPnlProcessor:
         ## Upload Results
         print("Upload Account:{}".format(account))
         query = "INSERT INTO hp.IntradayPnl values "
-        for res in account_res.values:
-            query += self.get_insert_code(res)
-        client.execute(query)
-
-
+        rows = client.insert_dataframe(
+            f'INSERT INTO hp.IntradayPnl VALUES',account_res
+        )
+        # for res in account_res.values:
+        #     query += self.get_insert_code(res)
+        # client.execute(query)
 
 
     def get_yestoday_pnl(self,account):
-        df_pos = utils.get_pos(self.prev_date,account)
+        df_pos = self.pos_dict[account]
         if len(df_pos) == 0:
             return pd.DataFrame()
         df_pos = df_pos[df_pos["NetPos"] != 0]
@@ -148,12 +147,8 @@ class IntradayPnlProcessor:
         df_concat = pd.concat(df_list)[["Account","Date","Code","Timestamp","IntradayTime","CumPnl","Rtn"]]
         return df_concat
 
-
-
-
-
     def get_intraday_pnl(self,account):
-        df_all_trades = utils.get_trades(account,self.date)
+        df_all_trades = self.trade_dict[account]
         if len(df_all_trades) == 0:
             return pd.DataFrame()
         trade_map = {v:k for k,v in enumerate(df_all_trades.columns)}
