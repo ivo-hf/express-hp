@@ -101,12 +101,12 @@ class IntradayPnlProcessor:
         ## Upload Results
         print("Upload Account:{}".format(account))
         query = "INSERT INTO hp.IntradayPnl values "
-        rows = client.insert_dataframe(
-            f'INSERT INTO hp.IntradayPnl VALUES',account_res
-        )
-        # for res in account_res.values:
-        #     query += self.get_insert_code(res)
-        # client.execute(query)
+        # rows = client.insert_dataframe(
+        #     f'INSERT INTO hp.IntradayPnl VALUES',account_res
+        # )
+        for res in account_res.values:
+            query += self.get_insert_code(res)
+        client.execute(query)
 
 
     def get_yestoday_pnl(self,account):

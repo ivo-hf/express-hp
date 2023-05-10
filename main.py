@@ -16,11 +16,10 @@ client = Client(host='192.168.47.110', port='9000', user='hfadmin', password='cm
 
 if __name__ == '__main__':
     start = time.time()
-    # date = datetime.datetime.today().strftime('%Y%m%d')
-    date = '20230424'
+    date = datetime.datetime.today().strftime('%Y%m%d')
+    # date = '20230424'
     # 预测分析数据计算与上传
     print("========= Run：{} =============".format(date))
-
     prediction_processor = PredictionProcessor(date)
     prediction_processor.run()
     print("完成预测分析，耗时：{}".format(time.time() - start))
